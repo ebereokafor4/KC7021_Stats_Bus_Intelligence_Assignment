@@ -1,0 +1,77 @@
+# AUTHOR: edisonchukwuemeka
+# DATE: 5/6/23
+# FILENAME: datafile_problem9.py
+# Feature: 
+# Feature Details:
+#
+
+
+import urllib.request
+import json
+from collections import defaultdict
+import pandas as pd
+from datetime import datetime, timedelta
+import time
+
+# datetime object containing current date and time
+now = datetime.now()
+MINUTES = 60
+HOURS = 12
+delta = timedelta(hours=HOURS, minutes=MINUTES)
+wait_second = 30 * 60
+print("now =", now)
+
+upstream_data = defaultdict(list)
+downstream_data = defaultdict(list)
+# dd/mm/YY H:M:S
+dt_string = now.strftime("%m-%d-%Y_%H_%M_%S")
+idx = 0
+ROW_ITER = 55000
+time_iter = now
+data_file = defaultdict(list)
+while time_iter < (now + delta):
+    time_now = datetime.now()
+    time_int = int(round(time_now.timestamp()))
+    url_link = f'https://www.trafficengland.com/api/network/getJunctionSections?roadName=M1&_={time_int}'
+    if idx == 0:
+        START_TIME = time_now
+    load_interval = (time_now - START_TIME) % delta
+    dt_string = time_now.strftime("%m-%d-%Y_%H_%M_%S")
+    with urllib.request.urlopen(url_link) as url:
+        data = json.load(url)
+        data_file['DATE'].append(time_now)
+        data_file['DATA'].append(data)
+        df = pd.DataFrame.from_dict(data_file)
+        df.to_csv(f"data_file/problem9_{dt_string}.csv", index=False)
+
+    upstream_data['DATE'].append(time_now)
+    downstream_data['DATE'].append(time_now)
+
+    for key in data.keys():
+        up_avg = data[key]["secondaryUpstreamJunctionSection"]
+        down_avg = data[key]["primaryDownstreamJunctionSection"]
+
+        if (up_avg is not None) and (down_avg is not None):
+            upstream_data[key].append(up_avg["avgSpeed"])
+            downstream_data[key].append(down_avg["avgSpeed"])
+        elif up_avg is not None:
+            upstream_data[key].append(up_avg["avgSpeed"])
+            downstream_data[key].append('NA')
+        elif down_avg is not None:
+            upstream_data[key].append('NA')
+            downstream_data[key].append(down_avg["avgSpeed"])
+        else:
+            upstream_data[key].append('NA')
+            downstream_data[key].append('NA')
+    time_iter = time_now
+    idx += 1
+    time.sleep(wait_second)
+
+    upstream_df = pd.DataFrame.from_dict(upstream_data)
+    upstream_df.to_csv(f"extracted/upstream_problem10_{dt_string}.csv", index=False)
+    downstream_df = pd.DataFrame.from_dict(downstream_data)
+    downstream_df.to_csv(f"extracted/downstream_problem10_{dt_string}.csv", index=False)
+
+
+
+
